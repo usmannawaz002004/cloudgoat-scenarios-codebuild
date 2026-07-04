@@ -31,25 +31,7 @@ By starting a new build and overriding the buildspec with inline commands, the a
 
 ## Exploitation Route(s)
 
-```
-[Start: Bob IAM Keys]
-        |
-        v
-[codebuild:ListProjects]
-  Discover: cg-vulnerable-project-<cgid>
-        |
-        v
-[codebuild:StartBuild — override buildspec with inline commands]
-  Inject: aws secretsmanager get-secret-value + curl POST to listener
-        |
-        v
-[CodeBuild assumes its service role]
-  Service role has secretsmanager:GetSecretValue on *
-        |
-        v
-[Secret value POSTed to attacker's listener]
-  GOAL: Read the flag
-```
+![Description of image](./SCR-20260704-pfne.png)
 
 ## Route Walkthrough — IAM User "Bob"
 
