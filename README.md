@@ -31,7 +31,7 @@ By starting a new build and overriding the buildspec with inline commands, the a
 
 ## Exploitation Route(s)
 
-![Description of image](./SCR-20260704-pfne.png)
+![Description of image](./SCR-20260704-pmuk.png)
 
 ## Route Walkthrough — IAM User "Bob"
 
