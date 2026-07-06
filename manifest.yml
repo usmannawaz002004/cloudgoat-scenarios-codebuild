@@ -1,7 +1,7 @@
 # CloudGoat scenario manifest
 # This file is consumed by the CloudGoat Python engine.
 
-name: codebuild_buildspec_override_and_privesc_service_role
+name: codebuild_buildspec_override
 summary: >
   Starting as a low-privileged IAM user with only CodeBuild list, inspect,
   and start permissions, abuse buildspec override injection to execute

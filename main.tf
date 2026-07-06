@@ -14,7 +14,7 @@ provider "aws" {
   default_tags {
     tags = {
       ManagedBy = "cloudgoat"
-      Scenario  = "codebuild_buildspec_override_and_privesc_service_role"
+      Scenario  = "codebuild_buildspec_override"
       CGID      = var.cgid
     }
   }
@@ -32,7 +32,7 @@ data "aws_caller_identity" "current" {}
 
 resource "aws_secretsmanager_secret" "flag" {
   name                    = "cg-flag-${var.cgid}"
-  description             = "CloudGoat codebuild_buildspec_override_and_privesc_service_role scenario flag."
+  description             = "CloudGoat codebuild_buildspec_override scenario flag."
   recovery_window_in_days = 0 # Instant deletion on destroy
 }
 

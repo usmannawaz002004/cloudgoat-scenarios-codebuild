@@ -1,10 +1,10 @@
-# Scenario: codebuild_buildspec_override_and_privesc_service_role
+# Scenario: codebuild_buildspec_override
 
 **Size:** Small
 
 **Difficulty:** Medium
 
-**Command:** `$ ./cloudgoat.py create codebuild_buildspec_override_and_privesc_service_role`
+**Command:** `$ ./cloudgoat.py create codebuild_buildspec_override`
 
 ## Scenario Resources
 
@@ -30,7 +30,7 @@ By starting a new build and overriding the buildspec with inline commands, the a
 
 ## Exploitation Route(s)
 
-![Exploitation route diagram for codebuild_buildspec_override_and_privesc_service_role](./exploitation_route.png)
+![Exploitation route diagram for codebuild_buildspec_override](./exploitation_route.png)
 
 ## Walkthrough - Bob
 

@@ -1,4 +1,4 @@
-# Cheat Sheet - codebuild_buildspec_override_and_privesc_service_role
+# Cheat Sheet - codebuild_buildspec_override
 
 ## Setup
 
