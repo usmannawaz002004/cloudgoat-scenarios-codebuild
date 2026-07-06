@@ -40,25 +40,8 @@ resource "aws_secretsmanager_secret_version" "flag" {
   secret_id = aws_secretsmanager_secret.flag.id
 
   secret_string = jsonencode({
-    flag = "cg-secret-flag-${var.cgid}"
+    flag = "Congratulations, you successfully injected the commands and escalated the privileges"
   })
-}
-
-# -----------------------------------------------------------------------
-# S3 bucket — CodeBuild artifact store
-# -----------------------------------------------------------------------
-
-resource "aws_s3_bucket" "artifacts" {
-  bucket        = "cg-artifacts-${var.cgid}"
-  force_destroy = true
-}
-
-resource "aws_s3_bucket_public_access_block" "artifacts" {
-  bucket                  = aws_s3_bucket.artifacts.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
 }
 
 # -----------------------------------------------------------------------
@@ -85,14 +68,15 @@ resource "aws_iam_role" "codebuild_service" {
 }
 
 data "aws_iam_policy_document" "codebuild_service_permissions" {
-  # Broad Secrets Manager access — this is the misconfiguration being exploited
+  # Read access scoped to this project's own secret; the exploited
+  # misconfiguration is the buildspec override, not the permission's scope
   statement {
-    sid    = "AllSecretsRead"
+    sid    = "SecretRead"
     effect = "Allow"
     actions = [
       "secretsmanager:GetSecretValue",
     ]
-    resources = ["*"]
+    resources = [aws_secretsmanager_secret.flag.arn]
   }
 
   # Minimal CodeBuild logging permissions so builds can run
@@ -105,23 +89,6 @@ data "aws_iam_policy_document" "codebuild_service_permissions" {
       "logs:PutLogEvents",
     ]
     resources = ["*"]
-  }
-
-  # Allow CodeBuild to write artifacts to the S3 bucket
-  statement {
-    sid    = "S3Artifacts"
-    effect = "Allow"
-    actions = [
-      "s3:PutObject",
-      "s3:GetObject",
-      "s3:GetObjectVersion",
-      "s3:GetBucketAcl",
-      "s3:GetBucketLocation",
-    ]
-    resources = [
-      aws_s3_bucket.artifacts.arn,
-      "${aws_s3_bucket.artifacts.arn}/*",
-    ]
   }
 }
 
@@ -182,12 +149,16 @@ resource "aws_codebuild_project" "vulnerable" {
     image        = "aws/codebuild/standard:7.0"
     type         = "LINUX_CONTAINER"
 
-    # Plaintext env var disclosing the target secret's name to anyone who
-    # can call codebuild:BatchGetProjects — this is the discovery vector.
+    # References the target secret by name; no secret material is stored
+    # in the project config. CodeBuild resolves this using the service
+    # role's own GetSecretValue permission and injects the resolved value
+    # into the build container at runtime. The reference itself, and so
+    # the secret's name, is still visible to anyone who can call
+    # codebuild:BatchGetProjects — this is the discovery vector.
     environment_variable {
       name  = "SECRET_NAME"
       value = aws_secretsmanager_secret.flag.name
-      type  = "PLAINTEXT"
+      type  = "SECRETS_MANAGER"
     }
   }
 

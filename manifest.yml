@@ -3,9 +3,10 @@
 
 name: codebuild_buildspec_override_and_privesc_service_role
 summary: >
-  Starting as a low-privileged IAM user with only CodeBuild list and start
-  permissions, abuse buildspec override injection to execute commands under
-  the CodeBuild service role and exfiltrate a Secrets Manager secret.
+  Starting as a low-privileged IAM user with only CodeBuild list, inspect,
+  and start permissions, abuse buildspec override injection to execute
+  commands under the CodeBuild service role and exfiltrate a Secrets
+  Manager secret.
 category: aws
 difficulty: medium
 size: small

