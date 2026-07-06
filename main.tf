@@ -14,7 +14,7 @@ provider "aws" {
   default_tags {
     tags = {
       ManagedBy = "cloudgoat"
-      Scenario  = "codebuild_secrets_exfil"
+      Scenario  = "codebuild_buildspec_override_and_privesc_service_role"
       CGID      = var.cgid
     }
   }
@@ -32,7 +32,7 @@ data "aws_caller_identity" "current" {}
 
 resource "aws_secretsmanager_secret" "flag" {
   name                    = "cg-flag-${var.cgid}"
-  description             = "CloudGoat codebuild_secrets_exfil scenario flag."
+  description             = "CloudGoat codebuild_buildspec_override_and_privesc_service_role scenario flag."
   recovery_window_in_days = 0 # Instant deletion on destroy
 }
 
@@ -91,7 +91,6 @@ data "aws_iam_policy_document" "codebuild_service_permissions" {
     effect = "Allow"
     actions = [
       "secretsmanager:GetSecretValue",
-      "secretsmanager:ListSecrets",
     ]
     resources = ["*"]
   }
@@ -145,12 +144,13 @@ resource "aws_iam_access_key" "bob" {
 }
 
 data "aws_iam_policy_document" "bob_permissions" {
-  # Only enough to discover and start builds — no Secrets Manager access
+  # Only enough to discover, inspect, and start builds — no Secrets Manager access
   statement {
     sid    = "CodeBuildLimitedAccess"
     effect = "Allow"
     actions = [
       "codebuild:ListProjects",
+      "codebuild:BatchGetProjects",
       "codebuild:StartBuild",
     ]
     resources = ["*"]
@@ -181,6 +181,14 @@ resource "aws_codebuild_project" "vulnerable" {
     compute_type = "BUILD_GENERAL1_SMALL"
     image        = "aws/codebuild/standard:7.0"
     type         = "LINUX_CONTAINER"
+
+    # Plaintext env var disclosing the target secret's name to anyone who
+    # can call codebuild:BatchGetProjects — this is the discovery vector.
+    environment_variable {
+      name  = "SECRET_NAME"
+      value = aws_secretsmanager_secret.flag.name
+      type  = "PLAINTEXT"
+    }
   }
 
   # Default buildspec — benign; the attacker overrides this at build start time

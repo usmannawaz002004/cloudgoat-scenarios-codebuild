@@ -1,5 +1,5 @@
 # These outputs are printed to the console and written to start.txt
-# when the scenario is created with ./cloudgoat.py create codebuild_secrets_exfil
+# when the scenario is created with ./cloudgoat.py create codebuild_buildspec_override_and_privesc_service_role
 
 output "cloudgoat_output_bob_access_key_id" {
   description = "Access key ID for the starting IAM user Bob."
